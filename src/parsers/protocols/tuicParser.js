@@ -8,7 +8,8 @@ export function parseTuic(url) {
         enabled: true,
         server_name: params.sni,
         alpn: parseArray(params.alpn),
-        insecure: parseBool(params['skip-cert-verify'] ?? params.insecure ?? params.allowInsecure, true)
+        // TUIC verifies the server certificate unless the link explicitly opts out.
+        insecure: parseBool(params['skip-cert-verify'] ?? params.insecure ?? params.allowInsecure, false)
     };
 
     return {

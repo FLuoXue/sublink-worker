@@ -156,6 +156,18 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
         // xudp is default in newer versions
         delete sanitized.packet_encoding;
 
+        // sing-box has no xhttp transport (Xray-only). Its HTTP transport is the
+        // closest equivalent and keeps the whole config loadable; an unknown
+        // transport type is fatal for sing-box.
+        if (sanitized.transport && (sanitized.transport.type === 'xhttp' || sanitized.transport.type === 'splithttp')) {
+            sanitized.transport = { ...sanitized.transport, type: 'http' };
+            delete sanitized.transport.mode;
+        }
+
+        // Post-quantum VLESS `encryption` is a mihomo/Xray option that sing-box
+        // rejects as an unknown field.
+        delete sanitized.encryption;
+
         if (sanitized.type === 'hysteria2') {
             // sing-box names port-hopping/bandwidth fields differently from the
             // share-link shape, and rejects unknown fields outright

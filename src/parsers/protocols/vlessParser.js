@@ -1,4 +1,4 @@
-import { parseServerInfo, parseUrlParams, createTlsConfig, createTransportConfig, parseBool } from '../../utils.js';
+import { parseServerInfo, parseUrlParams, createTlsConfig, createTransportConfig, parseBool, parseArray } from '../../utils.js';
 
 export function parseVless(url) {
     const { addressPart, params, name } = parseUrlParams(url);
@@ -17,6 +17,9 @@ export function parseVless(url) {
     // `udp` is a Clash-only flag; ClashConfigBuilder reads it, SingboxConfigBuilder strips it.
     const udp = params.udp !== undefined ? parseBool(params.udp) : undefined;
 
+    // Xray emits `encryption=none` for plain VLESS; only post-quantum values are meaningful here.
+    const encryption = params.encryption && params.encryption !== 'none' ? params.encryption : undefined;
+
     return {
         type: 'vless',
         tag: name,
@@ -27,6 +30,9 @@ export function parseVless(url) {
         tls,
         transport,
         flow: params.flow ?? undefined,
+        alpn: parseArray(params.alpn),
+        packet_encoding: params.packet_encoding ?? params.packetEncoding,
+        encryption,
         ...(udp !== undefined ? { udp } : {})
     };
 }

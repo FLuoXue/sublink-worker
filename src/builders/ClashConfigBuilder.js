@@ -202,6 +202,11 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                         path: proxy.transport.path,
                         headers: proxy.transport.headers
                     } : undefined,
+                    'xhttp-opts': proxy.transport?.type === 'xhttp' ? {
+                        ...(proxy.transport.path ? { path: proxy.transport.path } : {}),
+                        ...(proxy.transport.host ? { host: proxy.transport.host } : {}),
+                        ...(proxy.transport.mode ? { mode: proxy.transport.mode } : {}),
+                    } : undefined,
                     'reality-opts': proxy.tls?.reality?.enabled ? {
                         'public-key': proxy.tls.reality.public_key,
                         'short-id': proxy.tls.reality.short_id,
@@ -214,6 +219,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
                     udp: getClashUdpValue(proxy),
                     ...(proxy.alpn ? { alpn: proxy.alpn } : {}),
                     ...(proxy.packet_encoding ? { 'packet-encoding': proxy.packet_encoding } : {}),
+                    ...(proxy.encryption ? { encryption: proxy.encryption } : {}),
                     'flow': proxy.flow ?? undefined,
                 };
             case 'hysteria2':

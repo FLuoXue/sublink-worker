@@ -256,8 +256,24 @@ export const CustomRules = (props) => {
             jsonValid: false,
             
             init() {
+              // Custom rules live outside the form's own localStorage state, so
+              // restore them here to survive page reloads.
+              try {
+                const saved = localStorage.getItem('customRules');
+                if (saved) {
+                  const parsed = JSON.parse(saved);
+                  if (Array.isArray(parsed)) {
+                    this.rules = parsed;
+                    this.jsonContent = JSON.stringify(parsed, null, 2);
+                  }
+                }
+              } catch (e) {
+                // Ignore corrupted persisted rules and start from scratch
+              }
+
               // Watch for changes in rules to update JSON content
               this.$watch('rules', (value) => {
+                localStorage.setItem('customRules', JSON.stringify(value));
                 if (this.mode === 'form') {
                   this.jsonContent = JSON.stringify(value, null, 2);
                 }
@@ -320,6 +336,7 @@ export const CustomRules = (props) => {
               setTimeout(() => {
                 this.rules = [];
                 this.jsonContent = '[]';
+                localStorage.removeItem('customRules');
               }, 200);
             },
             

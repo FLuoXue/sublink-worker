@@ -1,4 +1,4 @@
-import { parseServerInfo, parseUrlParams, createTlsConfig, createTransportConfig } from '../../utils.js';
+import { parseServerInfo, parseUrlParams, createTlsConfig, createTransportConfig, parseArray } from '../../utils.js';
 
 export function parseTrojan(url) {
     const { addressPart, params, name } = parseUrlParams(url);
@@ -19,6 +19,7 @@ export function parseTrojan(url) {
         tcp_fast_open: false,
         tls,
         transport,
-        flow: params.flow ?? undefined
+        flow: params.flow ?? undefined,
+        alpn: parseArray(params.alpn)
     };
 }

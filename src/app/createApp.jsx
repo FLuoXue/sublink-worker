@@ -340,7 +340,11 @@ export function createApp(bindings = {}) {
             if (!originalParam) return c.text('Short URL not found', 404);
 
             const url = new URL(c.req.url);
-            return c.redirect(`${url.origin}/${prefix}${originalParam}`);
+            // Serve the config in place: the stored query string holds the whole
+            // subscription plus rules, and a redirect to a URL that long breaks
+            // clients with strict URL limits (e.g. Clash Verge on reqwest).
+            const target = new URL(`/${prefix}${originalParam}`, url.origin);
+            return await app.fetch(new Request(target, c.req.raw));
         } catch (error) {
             return handleError(c, error, runtime.logger);
         }

@@ -292,7 +292,9 @@ export function createTlsConfig(params) {
 		tls = {
 			enabled: true,
 			server_name: params.sni || params.host,
-			insecure: !!params?.allowInsecure || !!params?.insecure || !!params?.allow_insecure,
+			// Share links encode this as 0/1 strings, so a truthiness check would
+			// turn "insecure=0" into true and enable skip-cert-verify by mistake.
+			insecure: parseBool(params?.insecure ?? params?.allowInsecure ?? params?.allow_insecure, false),
 			// utls: {
 			//   enabled: true,
 			//   fingerprint: "chrome"
@@ -309,15 +311,33 @@ export function createTlsConfig(params) {
 	return tls;
 }
 
+// Xray renamed splithttp to xhttp; mihomo only knows the new name.
+const TRANSPORT_TYPE_ALIASES = {
+	splithttp: 'xhttp'
+};
+
 export function createTransportConfig(params) {
-	return {
-		type: params.type,
+	const type = TRANSPORT_TYPE_ALIASES[params.type] ?? params.type;
+	const transport = {
+		type,
 		path: params.path ?? undefined,
-		...(params.host && { 'headers': { 'host': params.host } }),
-		...(params.type === 'grpc' && {
-			service_name: params.serviceName ?? undefined,
-		})
 	};
+	if (params.host) {
+		// ws/http/h2 carry the host in transport headers, xhttp has its own field
+		// and would lose the host otherwise.
+		if (type === 'xhttp') {
+			transport.host = params.host;
+		} else {
+			transport.headers = { host: params.host };
+		}
+	}
+	if (params.mode) {
+		transport.mode = params.mode;
+	}
+	if (type === 'grpc') {
+		transport.service_name = params.serviceName ?? undefined;
+	}
+	return transport;
 }
 
 // Parse boolean value from various formats
