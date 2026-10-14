@@ -168,6 +168,16 @@ export class SingboxConfigBuilder extends BaseConfigBuilder {
         // rejects as an unknown field.
         delete sanitized.encryption;
 
+        // sing-box negotiates X25519MLKEM768 on its own; the mihomo-only flag
+        // would be rejected as an unknown reality option.
+        if (sanitized.tls?.reality?.support_x25519mlkem768 !== undefined) {
+            sanitized.tls = {
+                ...sanitized.tls,
+                reality: { ...sanitized.tls.reality }
+            };
+            delete sanitized.tls.reality.support_x25519mlkem768;
+        }
+
         if (sanitized.type === 'hysteria2') {
             // sing-box names port-hopping/bandwidth fields differently from the
             // share-link shape, and rejects unknown fields outright

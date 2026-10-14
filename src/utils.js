@@ -306,6 +306,11 @@ export function createTlsConfig(params) {
 				public_key: params.pbk,
 				short_id: params.sid,
 			};
+			// Mihomo strips X25519MLKEM768 from the ClientHello unless this is set,
+			// and Xray-core 26.9.8+ servers silently fall back without it.
+			if (parseBool(params['support-x25519mlkem768'] ?? params.support_x25519mlkem768, false)) {
+				tls.reality.support_x25519mlkem768 = true;
+			}
 		}
 	}
 	return tls;

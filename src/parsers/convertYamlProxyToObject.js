@@ -1,3 +1,34 @@
+// Mihomo spreads transport settings across per-protocol `-opts` blocks; VLESS
+// and Trojan share the same shape.
+const buildTransport = (network, p) => {
+    if (network === 'ws') {
+        const w = p['ws-opts'] || {};
+        return { type: 'ws', path: w.path, headers: w.headers };
+    }
+    if (network === 'grpc') {
+        const g = p['grpc-opts'] || {};
+        return { type: 'grpc', service_name: g['grpc-service-name'] };
+    }
+    if (network === 'http') {
+        const h = p['http-opts'] || {};
+        return { type: 'http', method: h.method || 'GET', path: h.path, headers: h.headers };
+    }
+    if (network === 'h2') {
+        const h2 = p['h2-opts'] || {};
+        return { type: 'h2', path: h2.path, host: h2.host };
+    }
+    if (network === 'xhttp' || network === 'splithttp') {
+        const x = p['xhttp-opts'] || {};
+        return {
+            type: 'xhttp',
+            path: x.path,
+            ...(x.host ? { host: x.host } : {}),
+            ...(x.mode ? { mode: x.mode } : {})
+        };
+    }
+    return undefined;
+};
+
 export function convertYamlProxyToObject(p) {
     if (!p || typeof p !== 'object' || !p.type) return null;
     const type = String(p.type).toLowerCase();
@@ -77,7 +108,14 @@ export function convertYamlProxyToObject(p) {
                     server_name: p.servername || p.sni,
                     insecure: !!p['skip-cert-verify'],
                     ...(reality
-                        ? { reality: { enabled: true, public_key: reality['public-key'], short_id: reality['short-id'] } }
+                        ? {
+                            reality: {
+                                enabled: true,
+                                public_key: reality['public-key'],
+                                short_id: reality['short-id'],
+                                ...(reality['support-x25519mlkem768'] ? { support_x25519mlkem768: true } : {})
+                            }
+                        }
                         : {})
                 }
                 : { enabled: false };
@@ -87,26 +125,7 @@ export function convertYamlProxyToObject(p) {
                     fingerprint: p['client-fingerprint']
                 };
             }
-            const transport = (() => {
-                const net = p.network;
-                if (net === 'ws') {
-                    const w = p['ws-opts'] || {};
-                    return { type: 'ws', path: w.path, headers: w.headers };
-                }
-                if (net === 'grpc') {
-                    const g = p['grpc-opts'] || {};
-                    return { type: 'grpc', service_name: g['grpc-service-name'] };
-                }
-                if (net === 'http') {
-                    const h = p['http-opts'] || {};
-                    return { type: 'http', method: h.method || 'GET', path: h.path, headers: h.headers };
-                }
-                if (net === 'h2') {
-                    const h2 = p['h2-opts'] || {};
-                    return { type: 'h2', path: h2.path, host: h2.host };
-                }
-                return undefined;
-            })();
+            const transport = buildTransport(p.network, p);
             return {
                 tag: name,
                 type: 'vless',
@@ -132,7 +151,14 @@ export function convertYamlProxyToObject(p) {
                     server_name: p.servername || p.sni,
                     insecure: !!p['skip-cert-verify'],
                     ...(reality
-                        ? { reality: { enabled: true, public_key: reality['public-key'], short_id: reality['short-id'] } }
+                        ? {
+                            reality: {
+                                enabled: true,
+                                public_key: reality['public-key'],
+                                short_id: reality['short-id'],
+                                ...(reality['support-x25519mlkem768'] ? { support_x25519mlkem768: true } : {})
+                            }
+                        }
                         : {})
                 }
                 : { enabled: false };
@@ -142,26 +168,7 @@ export function convertYamlProxyToObject(p) {
                     fingerprint: p['client-fingerprint']
                 };
             }
-            const transport = (() => {
-                const net = p.network;
-                if (net === 'ws') {
-                    const w = p['ws-opts'] || {};
-                    return { type: 'ws', path: w.path, headers: w.headers };
-                }
-                if (net === 'grpc') {
-                    const g = p['grpc-opts'] || {};
-                    return { type: 'grpc', service_name: g['grpc-service-name'] };
-                }
-                if (net === 'http') {
-                    const h = p['http-opts'] || {};
-                    return { type: 'http', method: h.method || 'GET', path: h.path, headers: h.headers };
-                }
-                if (net === 'h2') {
-                    const h2 = p['h2-opts'] || {};
-                    return { type: 'h2', path: h2.path, host: h2.host };
-                }
-                return undefined;
-            })();
+            const transport = buildTransport(p.network, p);
             return {
                 type: 'trojan',
                 tag: name,

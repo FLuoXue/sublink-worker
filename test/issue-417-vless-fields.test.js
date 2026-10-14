@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import yaml from 'js-yaml';
 import { parseVless } from '../src/parsers/protocols/vlessParser.js';
 import { parseTuic } from '../src/parsers/protocols/tuicParser.js';
+import { convertYamlProxyToObject } from '../src/parsers/convertYamlProxyToObject.js';
 import { ClashConfigBuilder } from '../src/builders/ClashConfigBuilder.js';
 import { SingboxConfigBuilder } from '../src/builders/SingboxConfigBuilder.js';
 import { createApp } from '../src/app/createApp.jsx';
@@ -26,7 +27,8 @@ const XHTTP_PARAMS = [
     'mode=auto',
     'host=cdn.example.com',
     'alpn=h2',
-    'packet_encoding=xudp'
+    'packet_encoding=xudp',
+    'support-x25519mlkem768=true'
 ].join('&');
 
 const XHTTP_URL = buildVlessUrl(XHTTP_PARAMS);
@@ -58,6 +60,14 @@ describe('Issue #417 - VLESS share link fields', () => {
         expect(parsed.encryption).toBe(ENCRYPTION);
         expect(parsed.alpn).toEqual(['h2']);
         expect(parsed.packet_encoding).toBe('xudp');
+    });
+
+    it('keeps the REALITY X25519MLKEM768 flag', () => {
+        const parsed = parseVless(XHTTP_URL);
+        const withoutFlag = parseVless(buildVlessUrl('security=reality&pbk=public-key&sid=abcd'));
+
+        expect(parsed.tls.reality.support_x25519mlkem768).toBe(true);
+        expect(withoutFlag.tls.reality.support_x25519mlkem768).toBeUndefined();
     });
 
     it('treats `encryption=none` as no encryption', () => {
@@ -107,6 +117,21 @@ describe('Issue #417 - Clash output', () => {
         expect(proxy.alpn).toEqual(['h2']);
         expect(proxy['packet-encoding']).toBe('xudp');
         expect(proxy['skip-cert-verify']).toBe(false);
+        expect(proxy['reality-opts']).toMatchObject({
+            'public-key': 'public-key',
+            'short-id': 'abcd',
+            'support-x25519mlkem768': true
+        });
+    });
+
+    it('omits support-x25519mlkem768 when the link does not request it', async () => {
+        const built = await buildClash(buildVlessUrl('security=reality&pbk=public-key&sid=abcd'));
+        const proxy = built.proxies.find(p => p.name === 'test-node');
+
+        expect(proxy['reality-opts']).toEqual({
+            'public-key': 'public-key',
+            'short-id': 'abcd'
+        });
     });
 
     it('does not drop nodes that differ only by alpn', async () => {
@@ -150,6 +175,60 @@ describe('Issue #417 - sing-box output', () => {
         expect(outbound.transport.mode).toBeUndefined();
         expect(outbound.encryption).toBeUndefined();
         expect(outbound.packet_encoding).toBeUndefined();
+        expect(outbound.tls.reality.public_key).toBe('public-key');
+        expect(outbound.tls.reality.support_x25519mlkem768).toBeUndefined();
+    });
+});
+
+describe('Issue #417 - Clash YAML input', () => {
+    it('keeps reality and xhttp options when converting a Clash proxy', () => {
+        const converted = convertYamlProxyToObject({
+            name: 'yaml-reality',
+            type: 'vless',
+            server: 'example.com',
+            port: 443,
+            uuid: UUID,
+            tls: true,
+            servername: 'example.com',
+            'client-fingerprint': 'chrome',
+            network: 'xhttp',
+            alpn: ['h2'],
+            'xhttp-opts': { path: '/x', host: 'cdn.example.com', mode: 'stream-one' },
+            'reality-opts': {
+                'public-key': 'public-key',
+                'short-id': 'abcd',
+                'support-x25519mlkem768': true
+            }
+        });
+
+        expect(converted.tls.reality.support_x25519mlkem768).toBe(true);
+        expect(converted.transport).toMatchObject({
+            type: 'xhttp',
+            path: '/x',
+            host: 'cdn.example.com',
+            mode: 'stream-one'
+        });
+    });
+
+    it('emits the flag back into Clash output', async () => {
+        const built = await buildClash(`
+proxies:
+  - name: yaml-reality
+    type: vless
+    server: example.com
+    port: 443
+    uuid: ${UUID}
+    tls: true
+    servername: example.com
+    network: tcp
+    reality-opts:
+      public-key: public-key
+      short-id: abcd
+      support-x25519mlkem768: true
+`);
+
+        const proxy = built.proxies.find(p => p.name === 'yaml-reality');
+        expect(proxy['reality-opts']['support-x25519mlkem768']).toBe(true);
     });
 });
 
