@@ -16,6 +16,7 @@ import { ShortLinkService } from '../services/shortLinkService.js';
 import { ConfigStorageService } from '../services/configStorageService.js';
 import { ServiceError, MissingDependencyError } from '../services/errors.js';
 import { normalizeRuntime } from '../runtime/runtimeConfig.js';
+import { applyUpstreamHwid } from '../parsers/subscription/httpSubscriptionFetcher.js';
 import { PREDEFINED_RULE_SETS, SING_BOX_CONFIG, SING_BOX_CONFIG_V1_11, generateSubconverterConfig } from '../config/index.js';
 
 const DEFAULT_USER_AGENT = 'curl/7.74.0';
@@ -111,7 +112,8 @@ export function createApp(bindings = {}) {
                 externalController,
                 externalUiDownloadUrl,
                 singboxConfigVersion,
-                includeAutoSelect
+                includeAutoSelect,
+                getHwid(c)
             );
             await builder.build();
             const userinfo = builder.getSubscriptionUserinfo();
@@ -159,7 +161,8 @@ export function createApp(bindings = {}) {
                 enableClashUI,
                 externalController,
                 externalUiDownloadUrl,
-                includeAutoSelect
+                includeAutoSelect,
+                getHwid(c)
             );
             await builder.build();
             const userinfo = builder.getSubscriptionUserinfo();
@@ -202,7 +205,8 @@ export function createApp(bindings = {}) {
                 lang,
                 ua,
                 groupByCountry,
-                includeAutoSelect
+                includeAutoSelect,
+                getHwid(c)
             );
             builder.setSubscriptionUrl(c.req.url);
             await builder.build();
@@ -270,7 +274,8 @@ export function createApp(bindings = {}) {
         const finalProxyList = [];
         let subscriptionUserinfo;
         const userAgent = c.req.query('ua') || getRequestHeader(c.req, 'User-Agent') || DEFAULT_USER_AGENT;
-        const headers = { 'User-Agent': userAgent };
+        const headers = new Headers({ 'User-Agent': userAgent });
+        const hwid = getHwid(c);
 
         for (const proxy of proxylist) {
             const trimmedProxy = proxy.trim();
@@ -278,7 +283,7 @@ export function createApp(bindings = {}) {
 
             if (trimmedProxy.startsWith('http://') || trimmedProxy.startsWith('https://')) {
                 try {
-                    const response = await fetch(trimmedProxy, { method: 'GET', headers });
+                    const response = await fetch(applyUpstreamHwid(trimmedProxy, headers, hwid), { method: 'GET', headers });
                     const fetchedUserinfo = response.headers.get('subscription-userinfo');
                     if (fetchedUserinfo && subscriptionUserinfo === undefined) {
                         subscriptionUserinfo = fetchedUserinfo;
@@ -516,6 +521,17 @@ function resolveSingboxConfigVersion(requestedVersion, userAgent) {
     }
 
     return '1.12';
+}
+
+// Panels (Xboard, etc.) key device limits off the HWID the client sends, either
+// as the X-HWID header or as a query parameter.
+function getHwid(c) {
+    const header = getRequestHeader(c.req, 'X-HWID');
+    const query = c.req.query('hwid');
+    if (!header && !query) {
+        return undefined;
+    }
+    return { header, query };
 }
 
 function getRequestHeader(request, name) {

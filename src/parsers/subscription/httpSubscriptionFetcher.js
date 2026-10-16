@@ -117,6 +117,37 @@ function detectFormat(content) {
 }
 
 /**
+ * Relay the client's HWID to the upstream subscription.
+ * Panels (Xboard, etc.) enforce device limits on the subscription request
+ * itself, and clients send the identifier either as a header or a query param.
+ * @param {string} url - Upstream subscription URL
+ * @param {Headers} headers - Headers that will be sent upstream
+ * @param {{header?: string, query?: string}} [hwid] - Values seen on the client request
+ * @returns {string} - URL to fetch
+ */
+export function applyUpstreamHwid(url, headers, hwid) {
+    if (!hwid) {
+        return url;
+    }
+    if (hwid.header) {
+        headers.set('X-HWID', hwid.header);
+    }
+    if (!hwid.query) {
+        return url;
+    }
+
+    try {
+        const parsed = new URL(url);
+        if (!parsed.searchParams.has('hwid')) {
+            parsed.searchParams.set('hwid', hwid.query);
+        }
+        return parsed.toString();
+    } catch (_) {
+        return url;
+    }
+}
+
+/**
  * Fetch subscription content from a URL and parse it
  * @param {string} url - The subscription URL to fetch
  * @param {string} userAgent - Optional User-Agent header
@@ -151,13 +182,13 @@ export async function fetchSubscription(url, userAgent) {
  * @param {string} userAgent - Optional User-Agent header
  * @returns {Promise<{content: string, format: 'clash'|'singbox'|'surge'|'unknown', url: string, subscriptionUserinfo?: string}|null>}
  */
-export async function fetchSubscriptionWithFormat(url, userAgent) {
+export async function fetchSubscriptionWithFormat(url, userAgent, hwid) {
     try {
         const headers = new Headers();
         if (userAgent) {
             headers.set('User-Agent', userAgent);
         }
-        const response = await fetch(url, {
+        const response = await fetch(applyUpstreamHwid(url, headers, hwid), {
             method: 'GET',
             headers: headers
         });

@@ -4,13 +4,14 @@ import { createTranslator } from '../i18n/index.js';
 import { generateRules, getOutbounds, PREDEFINED_RULE_SETS } from '../config/index.js';
 
 export class BaseConfigBuilder {
-    constructor(inputString, baseConfig, lang, userAgent, groupByCountry = false, includeAutoSelect = true) {
+    constructor(inputString, baseConfig, lang, userAgent, groupByCountry = false, includeAutoSelect = true, hwid = undefined) {
         this.inputString = inputString;
         this.config = deepCopy(baseConfig);
         this.customRules = [];
         this.selectedRules = [];
         this.t = createTranslator(lang);
         this.userAgent = userAgent;
+        this.hwid = hwid;  // client device id, relayed to the upstream subscription
         this.appliedOverrideKeys = new Set();
         this.groupByCountry = groupByCountry;
         this.includeAutoSelect = includeAutoSelect;
@@ -92,7 +93,7 @@ export class BaseConfigBuilder {
                     const { fetchSubscriptionWithFormat } = await import('../parsers/subscription/httpSubscriptionFetcher.js');
 
                     try {
-                        const fetchResult = await fetchSubscriptionWithFormat(trimmedUrl, this.userAgent);
+                        const fetchResult = await fetchSubscriptionWithFormat(trimmedUrl, this.userAgent, this.hwid);
                         if (fetchResult) {
                             const { content, format, url: originalUrl, subscriptionUserinfo } = fetchResult;
 
